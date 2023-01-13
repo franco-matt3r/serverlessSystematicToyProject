@@ -1,7 +1,10 @@
+useDotenv: true
+plugins:
+  - serverless-iam-roles-per-function
+
 org: francomatt3r
 app: francopracticeawsproject
-service: francoPracticeAWSProject
-
+service: ${env:SERVICE_NAME}
 frameworkVersion: '3'
 
 provider:
@@ -10,13 +13,35 @@ provider:
   stage: dev
   region: us-west-2
 
-
 functions:
   Function:
     handler: handler.practiceProcessNewFile
+    timeout: 30
+    memorySize: 128
+    environment:
+      DESTINATION_BUCKET: !Sub franco-practice-bucket2-${AWS::AccountId}
     events:
       - sqs:
-          arn: !GetAtt Queue.Arn      
+          arn: !GetAtt Queue.Arn
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - sqs:DeleteMessage
+          - sqs:GetQueueAttributes
+          - sqs:ReceiveMessage
+        Resource: !GetAtt Queue.Arn
+      - Effect: Allow
+        Action:
+          - "s3:GetObject"
+        Resource: 
+          - !GetAtt Bucket1.Arn
+          - !Sub ${Bucket1.Arn}/*
+      - Effect: Allow
+        Action:
+          - "s3:PutObject"
+        Resource:
+          - !GetAtt Bucket2.Arn # Remove this to check if you needed it
+          - !Sub ${Bucket2.Arn}/*  
 
 resources:
   Resources:
@@ -55,28 +80,6 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: !Sub franco-practice-bucket2-${AWS::AccountId}
-        BucketEncryption:
-          ServerSideEncryptionConfiguration:
-            - ServerSideEncryptionByDefault:
-                SSEAlgorithm: aws:kms
-                KMSMasterKeyID: alias/aws/s3
-        PublicAccessBlockConfiguration:
-          IgnorePublicAcls: true
-          RestrictPublicBuckets: true
-    Bucket2BucketPolicy:
-      Type: AWS::S3::BucketPolicy
-      Properties:
-        Bucket: !Ref Bucket2
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Principal: '*'
-              Action:
-                - s3:PutObject
-              Effect: Allow
-              Resource:
-                - !GetAtt Bucket2.Arn
-                - !Sub ${Bucket2.Arn}/*
     Bucket1:
       Type: AWS::S3::Bucket
       Properties:
@@ -85,24 +88,6 @@ resources:
           TopicConfigurations:
             - Event: s3:ObjectCreated:*
               Topic: !Ref Topic
-    Bucket1BucketPolicy:
-      Type: AWS::S3::BucketPolicy
-      Properties:
-        Bucket: !Ref Bucket1
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Principal:
-                Service: s3.amazonaws.com
-              Action:
-                - 's3:GetObject'
-              Effect: Allow
-              Resource:
-                - !GetAtt Bucket1.Arn
-                - !Sub ${Bucket1.Arn}/*
-              Condition:
-                ArnEquals:
-                  aws:SourceArn: arn:aws:lambda:us-west-2:963414178352:function:francoPracticeAWSProject-dev-Function  #!GetAtt Function.Arn   
     Bucket1ToTopicPermission:
       Type: AWS::SNS::TopicPolicy
       Properties:
