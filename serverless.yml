@@ -1,0 +1,119 @@
+org: francomatt3r
+app: francopracticeawsproject
+service: francoPracticeAWSProject
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: dev
+  region: us-west-2
+
+
+functions:
+  Function:
+    handler: handler.practiceProcessNewFile
+    events:
+      - sqs:
+          arn: !GetAtt Queue.Arn      
+
+resources:
+  Resources:
+    Topic:
+      Type: AWS::SNS::Topic
+      Properties:
+        Subscription:
+          - Endpoint: !GetAtt Queue.Arn
+            Protocol: sqs
+    Queue:
+      Type: AWS::SQS::Queue
+      Properties:
+        MessageRetentionPeriod: 300
+    TopicToQueuePermission:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: sns.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt Queue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref Topic
+        Queues:
+          - !Ref Queue
+    FunctionLogGroup:
+      Type: AWS::Logs::LogGroup
+      DeletionPolicy: Retain
+      Properties:
+        LogGroupName: /aws/lambda/practiceProcessNewFile
+    Bucket2:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: !Sub franco-practice-bucket2-${AWS::AccountId}
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: aws:kms
+                KMSMasterKeyID: alias/aws/s3
+        PublicAccessBlockConfiguration:
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+    Bucket2BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref Bucket2
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Principal: '*'
+              Action:
+                - s3:PutObject
+              Effect: Allow
+              Resource:
+                - !GetAtt Bucket2.Arn
+                - !Sub ${Bucket2.Arn}/*
+    Bucket1:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: !Sub franco-practice-bucket1-${AWS::AccountId}
+        NotificationConfiguration:
+          TopicConfigurations:
+            - Event: s3:ObjectCreated:*
+              Topic: !Ref Topic
+    Bucket1BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref Bucket1
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Principal: '*'
+              Action: '*'
+              Effect: Deny
+              Resource:
+                - !GetAtt Bucket1.Arn
+                - !Sub ${Bucket1.Arn}/*
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'
+    Bucket1ToTopicPermission:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: s3.amazonaws.com
+              Action: sns:Publish
+              Resource: !Ref Topic
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Sub arn:${AWS::Partition}:s3:::franco-practice-bucket1-${AWS::AccountId}
+        Topics:
+          - !Ref Topic
