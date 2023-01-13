@@ -10,7 +10,6 @@ def practiceProcessNewFile(event, context):
     # obtain S3 data from the event source
     s3_bucket_start = json.loads(json.loads(event['Records'][0]['body'])['Message'])['Records'][0]['s3']['bucket']['name']
     file_name_start = json.loads(json.loads(event['Records'][0]['body'])['Message'])['Records'][0]['s3']['object']['key']
-    print(s3_bucket_start, file_name_start)
     file = s3.get_object(Bucket=s3_bucket_start, Key=file_name_start)["Body"].read()
     file_content = json.loads(file)      
     

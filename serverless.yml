@@ -10,7 +10,7 @@ frameworkVersion: '3'
 provider:
   name: aws
   runtime: python3.8
-  stage: dev
+  stage: ${opt:stage, 'dev'}
   region: us-west-2
 
 functions:
@@ -40,7 +40,6 @@ functions:
         Action:
           - "s3:PutObject"
         Resource:
-          - !GetAtt Bucket2.Arn # Remove this to check if you needed it
           - !Sub ${Bucket2.Arn}/*  
 
 resources:
@@ -59,7 +58,6 @@ resources:
       Type: AWS::SQS::QueuePolicy
       Properties:
         PolicyDocument:
-          Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Principal:
@@ -92,7 +90,6 @@ resources:
       Type: AWS::SNS::TopicPolicy
       Properties:
         PolicyDocument:
-          Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Principal:
