@@ -92,15 +92,17 @@ resources:
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
-            - Principal: '*'
-              Action: '*'
-              Effect: Deny
+            - Principal:
+                Service: s3.amazonaws.com
+              Action:
+                - 's3:GetObject'
+              Effect: Allow
               Resource:
                 - !GetAtt Bucket1.Arn
                 - !Sub ${Bucket1.Arn}/*
               Condition:
-                Bool:
-                  aws:SecureTransport: 'false'
+                ArnEquals:
+                  aws:SourceArn: arn:aws:lambda:us-west-2:963414178352:function:francoPracticeAWSProject-dev-Function  #!GetAtt Function.Arn   
     Bucket1ToTopicPermission:
       Type: AWS::SNS::TopicPolicy
       Properties:
